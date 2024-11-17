@@ -2,54 +2,51 @@ trigger:
   - "*"
 
 pool:
-  vmImage: "ubuntu-latest"
-
-variables:
-  buildConfiguration: "Release"
+  vmImage: ubuntu-latest
 
 steps:
-  # Use .NET SDK
   - task: UseDotNet@2
     displayName: "Use .NET SDK 6.x"
     inputs:
-      packageType: "sdk"
       version: "6.x"
 
-  # Install npm dependencies
   - task: Npm@1
     displayName: "Run npm install"
     inputs:
-      command: "install"
       verbose: false
 
-  # Compile Sass assets
   - script: "./node_modules/.bin/node-sass Tailspin.SpaceGame.Web/wwwroot --output Tailspin.SpaceGame.Web/wwwroot"
     displayName: "Compile Sass assets"
 
-  # Run Gulp tasks
-  - task: Gulp@1
+  - task: gulp@1
     displayName: "Run gulp tasks"
-    inputs:
-      gulpFile: "gulpfile.js"
-      targets: "default" # Replace 'default' with the specific gulp task if needed
 
-  # Write build info
-  - script: |
-      echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)" > buildinfo.txt
+  - script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)" > buildinfo.txt'
     displayName: "Write build info"
-    workingDirectory: "Tailspin.SpaceGame.Web/wwwroot"
+    workingDirectory: Tailspin.SpaceGame.Web/wwwroot
 
-  # Restore project dependencies
   - task: DotNetCoreCLI@2
     displayName: "Restore project dependencies"
     inputs:
       command: "restore"
       projects: "**/*.csproj"
 
-  # Build the project in Release mode
   - task: DotNetCoreCLI@2
     displayName: "Build the project - Release"
     inputs:
       command: "build"
-      arguments: "--no-restore --configuration $(buildConfiguration)"
+      arguments: "--no-restore --configuration Release"
       projects: "**/*.csproj"
+
+  - task: DotNetCoreCLI@2
+    displayName: "Publish the project - Release"
+    inputs:
+      command: "publish"
+      projects: "**/*.csproj"
+      publishWebProjects: false
+      arguments: "--no-build --configuration Release --output $(Build.ArtifactStagingDirectory)/Release"
+      zipAfterPublish: true
+
+  - task: PublishBuildArtifacts@1
+    displayName: "Publish Artifact: drop"
+    condition: succeeded()
